@@ -43,10 +43,10 @@ def get_db():
 
         db = g._database = MongoClient(
             MFLIX_DB_URI,
-            # TODO: Connection Pooling
             # Set the maximum connection pool size to 50 active connections.
-            # TODO: Timeouts
+            maxPoolSize=50,
             # Set the write timeout limit to 2500 milliseconds.
+            wtimeout=2500
         )[MFLIX_DB_NAME]
     return db
 
@@ -284,10 +284,8 @@ def get_movie(id):
         movie = db.movies.aggregate(pipeline).next()
         return movie
 
-    # TODO: Error Handling
     # If an invalid ID is passed to `get_movie`, it should return None.
-    except (StopIteration) as _:
-
+    except StopIteration as _:
         """
         Ticket: Error Handling
 
@@ -295,9 +293,9 @@ def get_movie(id):
         StopIteration exception is handled. Both exceptions should result in
         `get_movie` returning None.
         """
-
         return None
-
+    except InvalidId as _:
+        return None
     except Exception as e:
         return {}
 
@@ -544,11 +542,15 @@ def most_active_commenters():
 
     No field projection necessary.
     """
-    # TODO: User Report
     # Return the 20 users who have commented the most on MFlix.
-    pipeline = []
-
-    rc = db.comments.read_concern  # you may want to change this read concern!
+    pipeline = [
+        {
+            '$sortByCount': '$email'
+        }, {
+            '$limit': 20
+        }
+    ]
+    rc = ReadConcern(level="majority")  # you may want to change this read concern!
     comments = db.comments.with_options(read_concern=rc)
     result = comments.aggregate(pipeline)
     return list(result)
